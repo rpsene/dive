@@ -2,8 +2,11 @@ package runtime
 
 import (
 	"fmt"
+	"github.com/docker/distribution/context"
+	"github.com/docker/docker/client"
 	"github.com/dustin/go-humanize"
 	"github.com/logrusorgru/aurora"
+	"github.com/spf13/viper"
 	"github.com/wagoodman/dive/filetree"
 	"github.com/wagoodman/dive/image"
 	"github.com/wagoodman/dive/runtime/ci"
@@ -12,6 +15,7 @@ import (
 	"io/ioutil"
 	"log"
 	"os"
+	"path"
 	"strconv"
 )
 
@@ -79,32 +83,60 @@ func Run(options Options) {
 
 	analyzer := image.GetAnalyzer(options.ImageId)
 
-	fmt.Println(title("Fetching image..."))
-	reader, err := analyzer.Fetch()
-	if err != nil {
-		fmt.Printf("cannot fetch image: %v\n", err)
-		utils.Exit(1)
-	}
-	defer reader.Close()
+	// grab the image digest to use as the ID
+	ctx := context.Background()
+	c, _ := client.NewClientWithOpts(client.WithVersion(""), client.FromEnv)
+	imageInspect, _, err := c.ImageInspectWithRaw(ctx, options.ImageId)
+	id := imageInspect.ID
 
-	fmt.Println(title("Parsing image..."))
-	err = analyzer.Parse(reader)
-	if err != nil {
-		fmt.Printf("cannot parse image: %v\n", err)
-		utils.Exit(1)
+	p := viper.GetString("cache.path")
+	cachePath := path.Join(p, id)
+
+	fmt.Println(cachePath)
+	var result = &image.AnalysisResult{}
+
+	if _, err := os.Stat(cachePath); os.IsNotExist(err) {
+
+		fmt.Println(title("Fetching image..."))
+		reader, err := analyzer.Fetch()
+		if err != nil {
+			fmt.Printf("cannot fetch image: %v\n", err)
+			utils.Exit(1)
+		}
+		defer reader.Close()
+
+		fmt.Println(title("Parsing image..."))
+		err = analyzer.Parse(reader)
+		if err != nil {
+			fmt.Printf("cannot parse image: %v\n", err)
+			utils.Exit(1)
+		}
+
+		if doExport {
+			fmt.Println(title(fmt.Sprintf("Analyzing image... (export to '%s')", options.ExportFile)))
+		} else {
+			fmt.Println(title("Analyzing image..."))
+		}
+
+		result, err = analyzer.Analyze()
+		if err != nil {
+			fmt.Printf("cannot analyze image: %v\n", err)
+			utils.Exit(1)
+		}
+
+		// fmt.Printf("ORIGINAL: %+v\n", result.ID)
+
+		// result.Layers = nil
+		// result.RefTrees = nil
+		// result.Inefficiencies = nil
+		err = image.Save(cachePath, result)
+		// fmt.Println(err)
 	}
 
-	if doExport {
-		fmt.Println(title(fmt.Sprintf("Analyzing image... (export to '%s')", options.ExportFile)))
-	} else {
-		fmt.Println(title("Analyzing image..."))
-	}
+	// err = image.Load(cachePath, result)
+	// fmt.Println(err)
 
-	result, err := analyzer.Analyze()
-	if err != nil {
-		fmt.Printf("cannot analyze image: %v\n", err)
-		utils.Exit(1)
-	}
+	// fmt.Printf("LOADED: %+v\n", result.ID)
 
 	if doExport {
 		err = newExport(result).toFile(options.ExportFile)

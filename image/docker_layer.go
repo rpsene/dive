@@ -13,32 +13,32 @@ const (
 
 // ShortId returns the truncated id of the current layer.
 func (layer *dockerLayer) TarId() string {
-	return strings.TrimSuffix(layer.tarPath, "/layer.tar")
+	return strings.TrimSuffix(layer.TarPath, "/layer.tar")
 }
 
 // ShortId returns the truncated id of the current layer.
 func (layer *dockerLayer) Id() string {
-	return layer.history.ID
+	return layer.History.ID
 }
 
 // index returns the relative position of the layer within the image.
 func (layer *dockerLayer) Index() int {
-	return layer.index
+	return layer.RefIndex
 }
 
 // Size returns the number of bytes that this image is.
 func (layer *dockerLayer) Size() uint64 {
-	return layer.history.Size
+	return layer.History.Size
 }
 
 // Tree returns the file tree representing the current layer.
 func (layer *dockerLayer) Tree() *filetree.FileTree {
-	return layer.tree
+	return layer.RefTree
 }
 
 // ShortId returns the truncated id of the current layer.
 func (layer *dockerLayer) Command() string {
-	return strings.TrimPrefix(layer.history.CreatedBy, "/bin/sh -c ")
+	return strings.TrimPrefix(layer.History.CreatedBy, "/bin/sh -c ")
 }
 
 // ShortId returns the truncated id of the current layer.
@@ -61,7 +61,7 @@ func (layer *dockerLayer) ShortId() string {
 // String represents a layer in a columnar format.
 func (layer *dockerLayer) String() string {
 
-	if layer.index == 0 {
+	if layer.RefIndex == 0 {
 		return fmt.Sprintf(LayerFormat,
 			layer.ShortId(),
 			humanize.Bytes(layer.Size()),

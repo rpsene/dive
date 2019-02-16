@@ -19,9 +19,9 @@ var dockerVersion string
 func newDockerImageAnalyzer(imageId string) Analyzer {
 	return &dockerImageAnalyzer{
 		// store discovered json files in a map so we can read the image in one pass
-		jsonFiles: make(map[string][]byte),
-		layerMap:  make(map[string]*filetree.FileTree),
-		id:        imageId,
+		JsonFiles: make(map[string][]byte),
+		LayerMap:  make(map[string]*filetree.FileTree),
+		ID:        imageId,
 	}
 }
 
@@ -59,18 +59,18 @@ func (image *dockerImageAnalyzer) Fetch() (io.ReadCloser, error) {
 
 	// pull the image if it does not exist
 	ctx := context.Background()
-	image.client, err = client.NewClientWithOpts(client.WithVersion(dockerVersion), client.FromEnv)
+	image.Client, err = client.NewClientWithOpts(client.WithVersion(dockerVersion), client.FromEnv)
 	if err != nil {
 		return nil, err
 	}
-	_, _, err = image.client.ImageInspectWithRaw(ctx, image.id)
+	_, _, err = image.Client.ImageInspectWithRaw(ctx, image.ID)
 	if err != nil {
 		// don't use the API, the CLI has more informative output
-		fmt.Println("Image not available locally. Trying to pull '" + image.id + "'...")
-		utils.RunDockerCmd("pull", image.id)
+		fmt.Println("Image not available locally. Trying to pull '" + image.ID + "'...")
+		utils.RunDockerCmd("pull", image.ID)
 	}
 
-	readCloser, err := image.client.ImageSave(ctx, []string{image.id})
+	readCloser, err := image.Client.ImageSave(ctx, []string{image.ID})
 	if err != nil {
 		return nil, err
 	}
@@ -115,7 +115,7 @@ func (image *dockerImageAnalyzer) Parse(tarFile io.ReadCloser) error {
 				if err != nil {
 					return err
 				}
-				image.jsonFiles[name] = fileBuffer
+				image.JsonFiles[name] = fileBuffer
 			}
 		}
 	}
@@ -124,22 +124,32 @@ func (image *dockerImageAnalyzer) Parse(tarFile io.ReadCloser) error {
 }
 
 func (image *dockerImageAnalyzer) Analyze() (*AnalysisResult, error) {
-	image.trees = make([]*filetree.FileTree, 0)
+	image.Trees = make([]*filetree.FileTree, 0)
 
-	manifest := newDockerImageManifest(image.jsonFiles["manifest.json"])
-	config := newDockerImageConfig(image.jsonFiles[manifest.ConfigPath])
+	manifest := newDockerImageManifest(image.JsonFiles["manifest.json"])
+	config := newDockerImageConfig(image.JsonFiles[manifest.ConfigPath])
+
+	// grab the image digest to use as the ID
+	var id = image.ID
+	if image.Client != nil {
+		ctx := context.Background()
+		imageInspect, _, err := image.Client.ImageInspectWithRaw(ctx, image.ID)
+		if err != nil {
+			id = imageInspect.ID
+		}
+	}
 
 	// build the content tree
 	for _, treeName := range manifest.LayerTarPaths {
-		image.trees = append(image.trees, image.layerMap[treeName])
+		image.Trees = append(image.Trees, image.LayerMap[treeName])
 	}
 
 	// build the layers array
-	image.layers = make([]*dockerLayer, len(image.trees))
+	image.Layers = make([]*dockerLayer, len(image.Trees))
 
 	// note that the image config stores images in reverse chronological order, so iterate backwards through layers
 	// as you iterate chronologically through history (ignoring history items that have no layer contents)
-	layerIdx := len(image.trees) - 1
+	layerIdx := len(image.Trees) - 1
 	tarPathIdx := 0
 	for idx := 0; idx < len(config.History); idx++ {
 		// ignore empty layers, we are only observing layers with content
@@ -147,25 +157,25 @@ func (image *dockerImageAnalyzer) Analyze() (*AnalysisResult, error) {
 			continue
 		}
 
-		tree := image.trees[(len(image.trees)-1)-layerIdx]
+		tree := image.Trees[(len(image.Trees)-1)-layerIdx]
 		config.History[idx].Size = uint64(tree.FileSize)
 
-		image.layers[layerIdx] = &dockerLayer{
-			history: config.History[idx],
-			index:   layerIdx,
-			tree:    image.trees[layerIdx],
-			tarPath: manifest.LayerTarPaths[tarPathIdx],
+		image.Layers[layerIdx] = &dockerLayer{
+			History:  config.History[idx],
+			RefIndex: layerIdx,
+			RefTree:  image.Trees[layerIdx],
+			TarPath:  manifest.LayerTarPaths[tarPathIdx],
 		}
 
 		layerIdx--
 		tarPathIdx++
 	}
 
-	efficiency, inefficiencies := filetree.Efficiency(image.trees)
+	efficiency, inefficiencies := filetree.Efficiency(image.Trees)
 
 	var sizeBytes, userSizeBytes uint64
-	layers := make([]Layer, len(image.layers))
-	for i, v := range image.layers {
+	layers := make([]Layer, len(image.Layers))
+	for i, v := range image.Layers {
 		layers[i] = v
 		sizeBytes += v.Size()
 		if i != 0 {
@@ -180,8 +190,9 @@ func (image *dockerImageAnalyzer) Analyze() (*AnalysisResult, error) {
 	}
 
 	return &AnalysisResult{
+		ID:                id,
 		Layers:            layers,
-		RefTrees:          image.trees,
+		RefTrees:          image.Trees,
 		Efficiency:        efficiency,
 		UserSizeByes:      userSizeBytes,
 		SizeBytes:         sizeBytes,
@@ -222,7 +233,7 @@ func (image *dockerImageAnalyzer) processLayerTar(name string, layerIdx uint, re
 	message = fmt.Sprintf("  ├─ %s %s : %s", title, shortName, pb.String())
 	fmt.Printf("\r%s\n", message)
 
-	image.layerMap[tree.Name] = tree
+	image.LayerMap[tree.Name] = tree
 	return nil
 }
 

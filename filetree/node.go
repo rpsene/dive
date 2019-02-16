@@ -31,9 +31,6 @@ func NewNode(parent *FileNode, name string, data FileInfo) (node *FileNode) {
 
 	node.Children = make(map[string]*FileNode)
 	node.Parent = parent
-	if parent != nil {
-		node.Tree = parent.Tree
-	}
 
 	return node
 }
@@ -67,43 +64,12 @@ func (node *FileNode) Copy(parent *FileNode) *FileNode {
 	newNode := NewNode(parent, node.Name, node.Data.FileInfo)
 	newNode.Data.ViewInfo = node.Data.ViewInfo
 	newNode.Data.DiffType = node.Data.DiffType
+	newNode.isRoot = node.isRoot
 	for name, child := range node.Children {
 		newNode.Children[name] = child.Copy(newNode)
 		child.Parent = newNode
 	}
 	return newNode
-}
-
-// AddChild creates a new node relative to the current FileNode.
-func (node *FileNode) AddChild(name string, data FileInfo) (child *FileNode) {
-	// never allow processing of purely whiteout flag files (for now)
-	if strings.HasPrefix(name, doubleWhiteoutPrefix) {
-		return nil
-	}
-
-	child = NewNode(node, name, data)
-	if node.Children[name] != nil {
-		// tree node already exists, replace the payload, keep the children
-		node.Children[name].Data.FileInfo = *data.Copy()
-	} else {
-		node.Children[name] = child
-		node.Tree.Size++
-	}
-
-	return child
-}
-
-// Remove deletes the current FileNode from it's parent FileNode's relations.
-func (node *FileNode) Remove() error {
-	if node == node.Tree.Root {
-		return fmt.Errorf("cannot remove the tree root")
-	}
-	for _, child := range node.Children {
-		child.Remove()
-	}
-	delete(node.Parent.Children, node.Name)
-	node.Tree.Size--
-	return nil
 }
 
 // String shows the filename formatted into the proper color (by DiffType), additionally indicating if it is a symlink.
@@ -171,10 +137,13 @@ func (node *FileNode) VisitDepthChildFirst(visitor Visitor, evaluator VisitEvalu
 			return err
 		}
 	}
+
+	doVisit := evaluator != nil && evaluator(node) || evaluator == nil
+
 	// never visit the root node
-	if node == node.Tree.Root {
+	if node.isRoot {
 		return nil
-	} else if evaluator != nil && evaluator(node) || evaluator == nil {
+	} else if doVisit {
 		return visitor(node)
 	}
 
@@ -192,7 +161,7 @@ func (node *FileNode) VisitDepthParentFirst(visitor Visitor, evaluator VisitEval
 	}
 
 	// never visit the root node
-	if node != node.Tree.Root {
+	if !node.isRoot {
 		err = visitor(node)
 		if err != nil {
 			return err

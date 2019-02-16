@@ -23,21 +23,21 @@ func AssertDiffType(node *FileNode, expectedDiffType DiffType) error {
 
 func TestStringCollapsed(t *testing.T) {
 	tree := NewFileTree()
-	tree.Root.AddChild("1 node!", FileInfo{})
-	two := tree.Root.AddChild("2 node!", FileInfo{})
-	subTwo := two.AddChild("2 child!", FileInfo{})
-	subTwo.AddChild("2 grandchild!", FileInfo{})
+	tree.AddChild(tree.Root, "1 node!", FileInfo{})
+	two := tree.AddChild(tree.Root, "2 node!", FileInfo{})
+	subTwo := tree.AddChild(two, "2 child!", FileInfo{})
+	tree.AddChild(subTwo, "2 grandchild!", FileInfo{})
 	subTwo.Data.ViewInfo.Collapsed = true
-	three := tree.Root.AddChild("3 node!", FileInfo{})
-	subThree := three.AddChild("3 child!", FileInfo{})
-	three.AddChild("3 nested child 1!", FileInfo{})
-	threeGc1 := subThree.AddChild("3 grandchild 1!", FileInfo{})
-	threeGc1.AddChild("3 greatgrandchild 1!", FileInfo{})
-	subThree.AddChild("3 grandchild 2!", FileInfo{})
-	four := tree.Root.AddChild("4 node!", FileInfo{})
+	three := tree.AddChild(tree.Root, "3 node!", FileInfo{})
+	subThree := tree.AddChild(three, "3 child!", FileInfo{})
+	tree.AddChild(three, "3 nested child 1!", FileInfo{})
+	threeGc1 := tree.AddChild(subThree, "3 grandchild 1!", FileInfo{})
+	tree.AddChild(threeGc1, "3 greatgrandchild 1!", FileInfo{})
+	tree.AddChild(subThree, "3 grandchild 2!", FileInfo{})
+	four := tree.AddChild(tree.Root, "4 node!", FileInfo{})
 	four.Data.ViewInfo.Collapsed = true
-	tree.Root.AddChild("5 node!", FileInfo{})
-	four.AddChild("6, one level down...", FileInfo{})
+	tree.AddChild(tree.Root, "5 node!", FileInfo{})
+	tree.AddChild(four, "6, one level down...", FileInfo{})
 
 	expected :=
 		`├── 1 node!
@@ -62,12 +62,12 @@ func TestStringCollapsed(t *testing.T) {
 
 func TestString(t *testing.T) {
 	tree := NewFileTree()
-	tree.Root.AddChild("1 node!", FileInfo{})
-	tree.Root.AddChild("2 node!", FileInfo{})
-	tree.Root.AddChild("3 node!", FileInfo{})
-	four := tree.Root.AddChild("4 node!", FileInfo{})
-	tree.Root.AddChild("5 node!", FileInfo{})
-	four.AddChild("6, one level down...", FileInfo{})
+	tree.AddChild(tree.Root, "1 node!", FileInfo{})
+	tree.AddChild(tree.Root, "2 node!", FileInfo{})
+	tree.AddChild(tree.Root, "3 node!", FileInfo{})
+	four := tree.AddChild(tree.Root, "4 node!", FileInfo{})
+	tree.AddChild(tree.Root, "5 node!", FileInfo{})
+	tree.AddChild(four, "6, one level down...", FileInfo{})
 
 	expected :=
 		`├── 1 node!

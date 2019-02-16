@@ -7,8 +7,8 @@ import (
 	"path"
 	"strings"
 
-	"github.com/k0kubun/go-ansi"
-	"github.com/mitchellh/go-homedir"
+	ansi "github.com/k0kubun/go-ansi"
+	homedir "github.com/mitchellh/go-homedir"
 	log "github.com/sirupsen/logrus"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
@@ -58,6 +58,9 @@ func init() {
 func initConfig() {
 	filepathToCfg := getCfgFile(cfgFile)
 	viper.SetConfigFile(filepathToCfg)
+
+	// image caching
+	viper.SetDefault("cache.path", "./tmp/")
 
 	viper.SetDefault("log.level", log.InfoLevel.String())
 	viper.SetDefault("log.path", "./dive.log")

@@ -12,14 +12,14 @@ func TestAddChild(t *testing.T) {
 		Path: "stufffffs",
 	}
 
-	one := tree.Root.AddChild("first node!", payload)
+	one := tree.AddChild(tree.Root, "first node!", payload)
 
-	two := tree.Root.AddChild("nil node!", FileInfo{})
+	two := tree.AddChild(tree.Root, "nil node!", FileInfo{})
 
-	tree.Root.AddChild("third node!", FileInfo{})
-	two.AddChild("forth, one level down...", FileInfo{})
-	two.AddChild("fifth, one level down...", FileInfo{})
-	two.AddChild("fifth, one level down...", FileInfo{})
+	tree.AddChild(tree.Root, "third node!", FileInfo{})
+	tree.AddChild(two, "forth, one level down...", FileInfo{})
+	tree.AddChild(two, "fifth, one level down...", FileInfo{})
+	tree.AddChild(two, "fifth, one level down...", FileInfo{})
 
 	expected, actual = 5, tree.Size
 	if expected != actual {
@@ -50,13 +50,13 @@ func TestRemoveChild(t *testing.T) {
 	var expected, actual int
 
 	tree := NewFileTree()
-	tree.Root.AddChild("first", FileInfo{})
-	two := tree.Root.AddChild("nil", FileInfo{})
-	tree.Root.AddChild("third", FileInfo{})
-	forth := two.AddChild("forth", FileInfo{})
-	two.AddChild("fifth", FileInfo{})
+	tree.AddChild(tree.Root, "first", FileInfo{})
+	two := tree.AddChild(tree.Root, "nil", FileInfo{})
+	tree.AddChild(tree.Root, "third", FileInfo{})
+	forth := tree.AddChild(two, "forth", FileInfo{})
+	tree.AddChild(two, "fifth", FileInfo{})
 
-	forth.Remove()
+	tree.Remove(forth)
 
 	expected, actual = 4, tree.Size
 	if expected != actual {
@@ -67,7 +67,7 @@ func TestRemoveChild(t *testing.T) {
 		t.Errorf("Expected 'forth' node to be deleted.")
 	}
 
-	two.Remove()
+	tree.Remove(two)
 
 	expected, actual = 2, tree.Size
 	if expected != actual {

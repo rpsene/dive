@@ -25,7 +25,7 @@ func NewFileTree() (tree *FileTree) {
 	tree = new(FileTree)
 	tree.Size = 0
 	tree.Root = new(FileNode)
-	tree.Root.Tree = tree
+	tree.Root.isRoot = true
 	tree.Root.Children = make(map[string]*FileNode)
 	tree.Id = uuid.New()
 	return tree
@@ -138,7 +138,7 @@ func (tree *FileTree) Copy() *FileTree {
 
 	// update the tree pointers
 	newTree.VisitDepthChildFirst(func(node *FileNode) error {
-		node.Tree = newTree
+		// node.Tree = newTree
 		return nil
 	}, nil)
 
@@ -196,6 +196,25 @@ func (tree *FileTree) GetNode(path string) (*FileNode, error) {
 	return node, nil
 }
 
+// AddChild creates a new node relative to the current FileNode.
+func (tree *FileTree) AddChild(node *FileNode, name string, data FileInfo) (child *FileNode) {
+	// never allow processing of purely whiteout flag files (for now)
+	if strings.HasPrefix(name, doubleWhiteoutPrefix) {
+		return nil
+	}
+
+	child = NewNode(node, name, data)
+	if node.Children[name] != nil {
+		// tree node already exists, replace the payload, keep the children
+		node.Children[name].Data.FileInfo = *data.Copy()
+	} else {
+		node.Children[name] = child
+		tree.Size++
+	}
+
+	return child
+}
+
 // AddPath adds a new node to the tree with the given payload
 func (tree *FileTree) AddPath(path string, data FileInfo) (*FileNode, []*FileNode, error) {
 	nodeNames := strings.Split(strings.Trim(path, "/"), "/")
@@ -211,7 +230,7 @@ func (tree *FileTree) AddPath(path string, data FileInfo) (*FileNode, []*FileNod
 		} else {
 			// don't attach the payload. The payload is destined for the
 			// Path's end node, not any intermediary node.
-			node = node.AddChild(name, FileInfo{})
+			node = tree.AddChild(node, name, FileInfo{})
 			addedNodes = append(addedNodes, node)
 
 			if node == nil {
@@ -229,13 +248,26 @@ func (tree *FileTree) AddPath(path string, data FileInfo) (*FileNode, []*FileNod
 	return node, addedNodes, nil
 }
 
+// Remove deletes a FileNode from the tree
+func (tree *FileTree) Remove(node *FileNode) error {
+	if node == tree.Root {
+		return fmt.Errorf("cannot remove the tree root")
+	}
+	for _, child := range node.Children {
+		tree.Remove(child)
+	}
+	delete(node.Parent.Children, node.Name)
+	tree.Size--
+	return nil
+}
+
 // RemovePath removes a node from the tree given its path.
 func (tree *FileTree) RemovePath(path string) error {
 	node, err := tree.GetNode(path)
 	if err != nil {
 		return err
 	}
-	return node.Remove()
+	return tree.Remove(node)
 }
 
 type compareMark struct {

@@ -1,9 +1,10 @@
 package image
 
 import (
+	"io"
+
 	"github.com/docker/docker/client"
 	"github.com/wagoodman/dive/filetree"
-	"io"
 )
 
 type Parser interface {
@@ -26,6 +27,7 @@ type Layer interface {
 }
 
 type AnalysisResult struct {
+	ID                string
 	Layers            []Layer
 	RefTrees          []*filetree.FileTree
 	Efficiency        float64
@@ -37,12 +39,12 @@ type AnalysisResult struct {
 }
 
 type dockerImageAnalyzer struct {
-	id        string
-	client    *client.Client
-	jsonFiles map[string][]byte
-	trees     []*filetree.FileTree
-	layerMap  map[string]*filetree.FileTree
-	layers    []*dockerLayer
+	ID        string
+	Client    *client.Client
+	JsonFiles map[string][]byte
+	Trees     []*filetree.FileTree
+	LayerMap  map[string]*filetree.FileTree
+	Layers    []*dockerLayer
 }
 
 type dockerImageHistoryEntry struct {
@@ -72,8 +74,8 @@ type dockerRootFs struct {
 
 // Layer represents a Docker image layer and metadata
 type dockerLayer struct {
-	tarPath string
-	history dockerImageHistoryEntry
-	index   int
-	tree    *filetree.FileTree
+	TarPath  string
+	History  dockerImageHistoryEntry
+	RefIndex int
+	RefTree  *filetree.FileTree
 }

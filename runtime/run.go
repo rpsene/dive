@@ -97,7 +97,7 @@ func Run(options Options) {
 
 	if _, err := os.Stat(cachePath); os.IsNotExist(err) {
 
-		fmt.Println(title("Fetching image..."))
+		fmt.Println(title("Fetching image...") + " (this can take a while with large images)")
 		reader, err := analyzer.Fetch()
 		if err != nil {
 			fmt.Printf("cannot fetch image: %v\n", err)

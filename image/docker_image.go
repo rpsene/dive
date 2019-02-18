@@ -86,7 +86,6 @@ func (image *dockerImageAnalyzer) Parse(tarFile io.ReadCloser) error {
 		header, err := tarReader.Next()
 
 		if err == io.EOF {
-			fmt.Println("  ╧")
 			break
 		}
 
@@ -151,20 +150,20 @@ func (image *dockerImageAnalyzer) Analyze() (*AnalysisResult, error) {
 	// as you iterate chronologically through history (ignoring history items that have no layer contents)
 	layerIdx := len(image.Trees) - 1
 	tarPathIdx := 0
-	for idx := 0; idx < len(config.History); idx++ {
+	for histIdx := 0; histIdx < len(config.History); histIdx++ {
 		// ignore empty layers, we are only observing layers with content
-		if config.History[idx].EmptyLayer {
+		if config.History[histIdx].EmptyLayer {
 			continue
 		}
 
 		tree := image.Trees[(len(image.Trees)-1)-layerIdx]
-		config.History[idx].Size = uint64(tree.FileSize)
+		config.History[histIdx].Size = uint64(tree.FileSize)
 
 		image.Layers[layerIdx] = &dockerLayer{
-			History:  config.History[idx],
-			RefIndex: layerIdx,
-			RefTree:  image.Trees[layerIdx],
-			TarPath:  manifest.LayerTarPaths[tarPathIdx],
+			History: config.History[histIdx],
+			RefIndex:   tarPathIdx,
+			RefTree:    image.Trees[layerIdx],
+			TarPath: manifest.LayerTarPaths[tarPathIdx],
 		}
 
 		layerIdx--
@@ -202,36 +201,20 @@ func (image *dockerImageAnalyzer) Analyze() (*AnalysisResult, error) {
 	}, nil
 }
 
-// todo: it is bad that this is printing out to the screen. As the interface gets more flushed out, an event update mechanism should be built in (so the caller can format and print updates)
 func (image *dockerImageAnalyzer) processLayerTar(name string, layerIdx uint, reader *tar.Reader) error {
 	tree := filetree.NewFileTree()
 	tree.Name = name
-
-	title := fmt.Sprintf("[layer: %2d]", layerIdx)
-	message := fmt.Sprintf("  ├─ %s %s ", title, "working...")
-	fmt.Printf("\r%s", message)
 
 	fileInfos, err := image.getFileList(reader)
 	if err != nil {
 		return err
 	}
 
-	shortName := name[:15]
-	pb := utils.NewProgressBar(int64(len(fileInfos)), 30)
-	for idx, element := range fileInfos {
+	for _, element := range fileInfos {
 		tree.FileSize += uint64(element.Size)
 
-		// todo: we should check for errors but also allow whiteout files to be not be added (thus not error out)
 		tree.AddPath(element.Path, element)
-
-		if pb.Update(int64(idx)) {
-			message = fmt.Sprintf("  ├─ %s %s : %s", title, shortName, pb.String())
-			fmt.Printf("\r%s", message)
-		}
 	}
-	pb.Done()
-	message = fmt.Sprintf("  ├─ %s %s : %s", title, shortName, pb.String())
-	fmt.Printf("\r%s\n", message)
 
 	image.LayerMap[tree.Name] = tree
 	return nil

@@ -1,16 +1,16 @@
 package filetree
 
-type TreeCacheKey struct {
+type TreeStackCacheKey struct {
 	bottomTreeStart, bottomTreeStop, topTreeStart, topTreeStop int
 }
 
-type TreeCache struct {
+type TreeStackCache struct {
 	refTrees []*FileTree
-	cache    map[TreeCacheKey]*FileTree
+	cache    map[TreeStackCacheKey]*FileTree
 }
 
-func (cache *TreeCache) Get(bottomTreeStart, bottomTreeStop, topTreeStart, topTreeStop int) *FileTree {
-	key := TreeCacheKey{bottomTreeStart, bottomTreeStop, topTreeStart, topTreeStop}
+func (cache *TreeStackCache) Get(bottomTreeStart, bottomTreeStop, topTreeStart, topTreeStop int) *FileTree {
+	key := TreeStackCacheKey{bottomTreeStart, bottomTreeStop, topTreeStart, topTreeStop}
 	if value, exists := cache.cache[key]; exists {
 		return value
 	} else {
@@ -21,7 +21,7 @@ func (cache *TreeCache) Get(bottomTreeStart, bottomTreeStop, topTreeStart, topTr
 	return value
 }
 
-func (cache *TreeCache) buildTree(key TreeCacheKey) *FileTree {
+func (cache *TreeStackCache) buildTree(key TreeStackCacheKey) *FileTree {
 	newTree := StackTreeRange(cache.refTrees, key.bottomTreeStart, key.bottomTreeStop)
 	for idx := key.topTreeStart; idx <= key.topTreeStop; idx++ {
 		newTree.CompareAndMark(cache.refTrees[idx])
@@ -29,7 +29,7 @@ func (cache *TreeCache) buildTree(key TreeCacheKey) *FileTree {
 	return newTree
 }
 
-func (cache *TreeCache) Build() {
+func (cache *TreeStackCache) Build() {
 	var bottomTreeStart, bottomTreeStop, topTreeStart, topTreeStop int
 
 	// case 1: layer compare (top tree SIZE is fixed (BUT floats forward), Bottom tree SIZE changes)
@@ -64,10 +64,10 @@ func (cache *TreeCache) Build() {
 	}
 }
 
-func NewFileTreeCache(refTrees []*FileTree) TreeCache {
+func NewFileTreeCache(refTrees []*FileTree) TreeStackCache {
 
-	return TreeCache{
+	return TreeStackCache{
 		refTrees: refTrees,
-		cache:    make(map[TreeCacheKey]*FileTree),
+		cache:    make(map[TreeStackCacheKey]*FileTree),
 	}
 }

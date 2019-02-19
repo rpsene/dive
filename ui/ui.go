@@ -302,7 +302,7 @@ func renderStatusOption(control, title string, selected bool) string {
 }
 
 // Run is the UI entrypoint.
-func Run(analysis *image.AnalysisResult, cache filetree.TreeCache) {
+func Run(analysis *image.AnalysisResult, cache filetree.TreeStackCache) {
 
 	Formatting.Selected = color.New(color.ReverseVideo, color.Bold).SprintFunc()
 	Formatting.Header = color.New(color.Bold).SprintFunc()

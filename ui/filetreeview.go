@@ -32,7 +32,7 @@ type FileTreeView struct {
 	ModelTree             *filetree.FileTree
 	ViewTree              *filetree.FileTree
 	RefTrees              []*filetree.FileTree
-	cache                 filetree.TreeCache
+	cache                 filetree.TreeStackCache
 	HiddenDiffTypes       []bool
 	TreeIndex             uint
 	bufferIndex           uint
@@ -50,7 +50,7 @@ type FileTreeView struct {
 }
 
 // NewFileTreeView creates a new view object attached the the global [gocui] screen object.
-func NewFileTreeView(name string, gui *gocui.Gui, tree *filetree.FileTree, refTrees []*filetree.FileTree, cache filetree.TreeCache) (treeView *FileTreeView) {
+func NewFileTreeView(name string, gui *gocui.Gui, tree *filetree.FileTree, refTrees []*filetree.FileTree, cache filetree.TreeStackCache) (treeView *FileTreeView) {
 	treeView = new(FileTreeView)
 
 	// populate main fields
